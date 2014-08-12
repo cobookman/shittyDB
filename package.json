@@ -1,0 +1,33 @@
+{
+  "name": "shittyDB",
+  "version": "0.0.0",
+  "description": "Database syntax for google spreadsheets. Great for those KISS programs",
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cobookman/shittyDB.git"
+  },
+  "keywords": [
+    "Database",
+    "google",
+    "spreadsheets",
+    "google",
+    "docs",
+    "KISS"
+  ],
+  "author": "Colin Bookman",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/cobookman/shittyDB/issues"
+  },
+  "homepage": "https://github.com/cobookman/shittyDB",
+  "dependencies": {
+    "async": "^0.9.0",
+    "colors": "^0.6.2",
+    "google-oauth-jwt": "0.0.4",
+    "googleclientlogin": "~0.2.6",
+    "lodash": "^2.4.1",
+    "request": "^2.39.0",
+    "xml2js": "^0.4.4"
+  }
+}
