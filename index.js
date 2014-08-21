@@ -28,14 +28,47 @@ function ShittyDB(config, callback) {
 }
 
 /*
-  @params dbkey type string
-  Select a database
-  Example: ShittyDB.use('1nm3BvaOcnx1cAmSLgnsAbug0eDhhkNnin9el0tuUaIs')
+  @params spreadhseet type string
+  use a spreedsheet, callback returns a list of tables
+  Example: ShittyDB.useSpreadsheet('https://spreadsheets.google.com/feeds/worksheets/1nm3BvaOcnx1cAmSLgnsAbug0eDhhkNnin9el0tuUaIs/private/full', function(err, tables) {
+    ShittyDB.useTable(tables['sheet1'], function(err, rows) {
+      // do stuff
+    });
+  });
 */
-ShittyDB.prototype.use = function(dbKey) {
-  this.dbKey = dbKey;
-  console.log("Database changed: "  + 'https://spreadsheets.google.com/feeds/list/'+this.dbKey+'/od6/private/full');
+ShittyDB.prototype.useSpreadsheet = function(db, callback) {
+  if(db) this.db = db;
+  var tables = {};
+
+  this.request({ url: this.db }, function(err, xml) {
+    if(!xml.feed || !xml.feed.entry) {
+      return callback('not feed entries from database url', null);
+
+    } else {
+      var entries = xml.feed.entry;
+      for(var i = 0, l = entries.length; i < l; ++i) {
+        var entry = entries[i];
+        for(var j = 0; j < entry.content.length; ++j) {
+          if(entry.content[j].$.type === 'application/atom+xml;type=feed') {
+            tables[entry.title] = entry.content[j].$.src;
+          }
+        }
+      }
+      return callback(null, tables);
+    }
+  });
   return this;
+};
+/*
+  @params table type url
+  example: ShittyDB.useTable('https://spreadsheets.google.com/feeds/list/1nm3BvaOcnx1cAmSLgnsAbug0eDhhkNnin9el0tuUaIs/ogs98wn/private/full');
+  Use a table
+*/
+ShittyDB.prototype.useTable = function(table, callback) {
+  this.table = table;
+  if(callback) {
+    return this.fetchAll(callback);
+  }
 };
 
 /*
@@ -88,6 +121,7 @@ ShittyDB.prototype.request = function(params, callback) {
 
   var that = this;
   request(params, function(err, response, body) {
+
     //show error
     if(err)
       return callback(err, null);
@@ -150,7 +184,13 @@ ShittyDB.prototype.sanetizeTableData = function(xml) {
   }
 */
 ShittyDB.prototype.query = function(query, callback) {
-  var url = 'https://spreadsheets.google.com/feeds/list/1nm3BvaOcnx1cAmSLgnsAbug0eDhhkNnin9el0tuUaIs/od6/private/full?';
+  var url = this.table ? this.table  : query.table;
+  // aka no this.table or query.table
+  if(!url) {
+    return callback('please specify a table in query source, or use a table');
+  }
+  
+  url = url + '?';
   if(query.orderBy) {
     url += 'orderby=' + query.orderBy + '&';
     if(query.reverseOrder) {
@@ -174,27 +214,41 @@ ShittyDB.prototype.query = function(query, callback) {
 /*
   Returns all results from the currently selected table
 */
-ShittyDB.prototype.fetchAll = function(callback) {
-  this.query({}, callback);
+ShittyDB.prototype.fetchAll = function(params, callback) {
+  if(typeof params === 'function') {
+    return this.query({}, params);
+  } else {
+    return this.query(params, callback);
+  }
 };
 
 /*
-  Returns a list of all 'tables' from selected database
+  Returns a list of all 'spreadsheets' belonging to user
 */
-ShittyDB.prototype.listTables = function(callback) {
-  try {
-    var url = 'https://spreadsheets.google.com/feeds/spreadsheets/private/full';
-    this.request({url: url}, function(err, xml) {
-      var tables = {};
-      var entries = xml.feed.entry;
-      for(var i = 0, l = xml.feed.entry.length; i < l; ++i) {
-        tables[entries[i].title] = (entries[i].id.length === 1) ? entries[i].id[0] : entries[i].id;
+ShittyDB.prototype.spreadsheets = function(callback) {
+  var url = 'https://spreadsheets.google.com/feeds/spreadsheets/private/full';
+  this.request({url: url}, function(err, xml) {
+    if(err) {
+      return callback(err, null);
+    }
+
+    var spreadsheets = {};
+    var entries = xml && xml.feed && xml.feed.entry;
+    var numEntries = entries.length ? entries.length : 0;
+
+    for(var i = 0; i < numEntries; ++i) {
+      var spreadsheet = entries[i];
+      var name = spreadsheet.title;
+      var sheetLinks = spreadsheet.content;
+      for(var j = 0; j < sheetLinks.length; ++j) {
+        if(sheetLinks[j].$.type === "application/atom+xml;type=feed") {
+          spreadsheets[name] = sheetLinks[j].$.src;
+        }
       }
-      return callback(err, tables);
-    });
-  } catch(err) {
-    return callback(err, null);
-  }
+    }
+
+    return callback(err, spreadsheets);
+  });
 };
 
 module.exports = ShittyDB;
